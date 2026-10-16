@@ -1,11 +1,11 @@
 # Final submission packaging.
 #
 # Builds the two gradeable deliverables the course expects, per exercise:
-#   dist/exc0X_source_<MATRIKEL>.zip   <- README.md + source (the chosen solution's src/)
-#   dist/exc0X_report_<MATRIKEL>.pdf   <- that solution's report.md, rendered to PDF
+#   dist/exc0X_source_<STUDENT_ID>.zip   <- README.md + source (the chosen solution's src/)
+#   dist/exc0X_report_<STUDENT_ID>.pdf   <- that solution's report.md, rendered to PDF
 #
 # One submission per team: SUBMISSIONS records WHICH solution (owner) we picked.
-# But each member packages it under THEIR OWN id, read from .env (MATRIKEL).
+# But each member packages it under THEIR OWN id, read from .env (STUDENT_ID).
 # So .env is personal/gitignored; SUBMISSIONS is shared/tracked.
 #
 # Layout assumed per person:
@@ -28,15 +28,15 @@ WHO ?=
 SUBMISSIONS_FILE ?= SUBMISSIONS
 DIST ?= dist
 
-# Personal settings (MATRIKEL=...). Silent if missing so `record`/`clean` still work.
+# Personal settings (STUDENT_ID=...). Silent if missing so `record`/`clean` still work.
 -include .env
 
 # Files inside src/ that must never end up in the submission zip.
 ZIP_EXCLUDES := '.terraform/*' '*/.terraform/*' '*.terraform.lock.hcl' '*.tfstate*' '.DS_Store' '*/.DS_Store' '.gitkeep' '*.zip'
 
-.PHONY: submit all record clean check-matrikel check-node
+.PHONY: submit all record clean check-student-id check-node
 
-submit: check-matrikel check-node
+submit: check-student-id check-node
 	@test -n "$(EX)" || { echo "set EX=<n>    e.g. make submit EX=1"; exit 1; }
 	@set -e; \
 	ex="$(EX)"; who="$(WHO)"; \
@@ -49,12 +49,12 @@ submit: check-matrikel check-node
 	test -d "$$dir/src" || { echo "missing source dir: $$dir/src"; exit 1; }; \
 	tag=$$(printf 'exc%02d' "$$ex"); \
 	mkdir -p "$(DIST)"; \
-	zipout="$(CURDIR)/$(DIST)/$${tag}_source_$(MATRIKEL).zip"; \
+	zipout="$(CURDIR)/$(DIST)/$${tag}_source_$(STUDENT_ID).zip"; \
 	rm -f "$$zipout"; \
 	( cd "$$dir/src" && zip -r -q "$$zipout" . -x $(ZIP_EXCLUDES) ); \
-	echo "built $(DIST)/$${tag}_source_$(MATRIKEL).zip  (from $$dir/src, owner=$$who)"; \
+	echo "built $(DIST)/$${tag}_source_$(STUDENT_ID).zip  (from $$dir/src, owner=$$who)"; \
 	if [ -f "$$dir/report.md" ]; then \
-		pdfout="$(DIST)/$${tag}_report_$(MATRIKEL).pdf"; \
+		pdfout="$(DIST)/$${tag}_report_$(STUDENT_ID).pdf"; \
 		npx --yes md-to-pdf "$$dir/report.md" >/dev/null; \
 		mv "$$dir/report.md".pdf "$$pdfout" 2>/dev/null || mv "$${dir%/}/report.pdf" "$$pdfout"; \
 		echo "built $$pdfout  (from $$dir/report.md)"; \
@@ -87,9 +87,9 @@ clean:
 
 # --- guards -------------------------------------------------------------
 
-check-matrikel:
-	@test -n "$(MATRIKEL)" || { echo "MATRIKEL is empty. Copy .env.example to .env and set your student id."; exit 1; }
-	@test "$(MATRIKEL)" != "csXXXXXX" || { echo "MATRIKEL is still the placeholder (csXXXXXX). Edit .env with your real id."; exit 1; }
+check-student-id:
+	@test -n "$(STUDENT_ID)" || { echo "STUDENT_ID is empty. Copy .env.example to .env and set your UIBK username (csXXXXXX)."; exit 1; }
+	@test "$(STUDENT_ID)" != "csXXXXXX" || { echo "STUDENT_ID is still the placeholder (csXXXXXX). Edit .env with your real UIBK username."; exit 1; }
 
 check-node:
 	@command -v npx >/dev/null || { echo "npx not found. Install Node.js (needed for md-to-pdf). See README setup."; exit 1; }

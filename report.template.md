@@ -51,9 +51,9 @@ How to generate the PDF (this repo):
 - This is the template. Copy it to your folder as the report source:
     cp report.template.md Exercise_<N>/<you>/report.md
   then fill in the sections above.
-- Build it with the Makefile (renders report.md -> dist/exc0N_report_<MATRIKEL>.pdf):
+- Build it with the Makefile (renders report.md -> dist/exc0N_report_<STUDENT_ID>.pdf):
     make submit EX=<N>
-  (set your id once in .env; see the repo README "Setup"). Uses `npx md-to-pdf`.
+  (set your UIBK username once in .env; see the repo README "Setup"). Uses `npx md-to-pdf`.
 
 Alternatives if you prefer:
 - VS Code: install the "Markdown PDF" extension, right-click -> Markdown PDF: Export (pdf).
