@@ -1,0 +1,8 @@
+# Accepted solution per exercise = what we uploaded for grading.
+# Format:  <exercise-number> <tab> <owner>
+# Edit by hand or via:  make record EX=<n> WHO=<name>
+# Build all zips with:   make all
+#
+# exercise  owner
+# 1         matti
+1	matti
