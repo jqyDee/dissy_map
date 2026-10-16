@@ -158,19 +158,6 @@ After an exercise is finalized: `make record`, commit `SUBMISSIONS`, then `make 
 
 ---
 
-## One-time setup (already done once by the first person)
-
-```bash
-# On main: add README, Makefile, and the per-person folders.
-git checkout main
-git add README.md Makefile Exercise_*/*/.gitkeep
-git commit -m "chore: team workflow + per-person exercise folders"
-git push origin main
-
-# Each person pulls the structure into their branch:
-git checkout <name> && git merge main --no-edit && git push origin <name>
-```
-
 ## Ignored files
 
 `.gitignore` excludes Terraform state (`*.tfstate`, `.terraform/`), `*.zip`,
