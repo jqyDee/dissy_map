@@ -13,14 +13,24 @@ exercise into `main`, so `main` is always the single, combined submission.
 ```
 .
 ├── README.md                 # this file
-├── Makefile                  # builds the gradeable submission zip (make submit ...)
-├── .gitignore                # ignores tfstate, .terraform, zips, .DS_Store
+├── Makefile                  # builds the gradeable deliverables (make submit ...)
+├── SUBMISSIONS               # which attempt is the accepted pick per exercise
+├── .env.example              # template for your personal settings (student id)
+├── .env                      # YOUR student id — gitignored, copy from .env.example
+├── .gitignore                # ignores tfstate, .terraform, zips, .env, dist/, .DS_Store
+├── dist/                     # build output (zip + report PDF) — gitignored
 │
 ├── Exercise_1/
 │   ├── Exercise_01_...pdf     # shared instructions (lives at the exercise root)
 │   ├── anna/                  # Anna's attempt
-│   ├── matti/                 # Matti's attempt
-│   └── paul/                  # Paul's attempt
+│   │   ├── report.md          #   report source -> rendered to the report PDF
+│   │   └── src/               #   == the source zip payload (README.md + code)
+│   ├── matti/
+│   │   ├── report.md
+│   │   └── src/
+│   └── paul/
+│       ├── report.md
+│       └── src/
 ├── Exercise_2/
 │   └── ...
 └── Final_Project/             # created when the project starts
@@ -28,6 +38,9 @@ exercise into `main`, so `main` is always the single, combined submission.
 
 **Rule:** each person works **only inside their own `Exercise_N/<name>/` folder**.
 Because everyone touches different paths, branch → `main` merges never conflict.
+
+**Per-person folder:** put all gradeable source in `src/` (it becomes the submission
+zip, flat) and write the report in `report.md` (it becomes the report PDF).
 
 ---
 
@@ -93,6 +106,29 @@ chore(paul): move Exercise 1 solution into paul/
 
 ---
 
+## Setup (needed to build submissions)
+
+Building deliverables needs **`make`**, **`zip`**, and **Node.js** (for the
+Markdown → PDF step, via `npx md-to-pdf`).
+
+- **macOS:** `make` and `zip` ship with the Xcode CLT (`xcode-select --install`).
+  Node: `brew install node`.
+- **Windows:** `cmd`/PowerShell have no `make`/`zip`. Use **WSL** or **Git Bash**,
+  which provide `make`, `zip`, and `bash`. Install Node inside that environment
+  (or install [Node for Windows](https://nodejs.org) and run `make` from Git Bash).
+
+Node sanity check: `node -v && npx -v`. The first `md-to-pdf` run downloads a
+headless Chromium (one-time, a few hundred MB), then renders the PDF.
+
+Then set your student id once:
+
+```bash
+cp .env.example .env        # then edit .env: MATRIKEL=cs123456 (your real id)
+```
+
+`.env` is **gitignored** — each teammate keeps their own. `SUBMISSIONS` (shared)
+decides *which* solution ships; `.env` decides *whose id* the files are named with.
+
 ## Building the submission
 
 The accepted pick per exercise is recorded in the tracked **`SUBMISSIONS`** file
@@ -101,15 +137,24 @@ grading — commit it whenever a pick changes.
 
 ```bash
 make record EX=1 WHO=matti   # mark matti as the accepted Exercise 1 solution (edits SUBMISSIONS)
-make all                     # build a zip for every accepted pick in SUBMISSIONS
-make submit EX=1 WHO=matti   # build just one zip -> Exercise_1/Exercise_1_submission.zip
-make clean                   # remove all built submission zips
+make submit EX=1             # package the accepted pick (owner read from SUBMISSIONS)
+make submit EX=1 WHO=paul    # override the owner for a one-off build
+make all                     # package every accepted pick in SUBMISSIONS
+make clean                   # remove dist/ (all built artifacts)
 ```
 
-Zips are **build artifacts** — gitignored, created on demand, never committed.
-Packaging skips `.terraform/`, `*.tfstate*`, `.DS_Store`, and nested `*.zip`.
+`make submit EX=1` produces, in `dist/` and named with your `.env` id:
+
+```
+dist/exc01_source_cs123456.zip   # contents of the owner's src/ (README.md + code), flat
+dist/exc01_report_cs123456.pdf   # the owner's report.md rendered to PDF
+```
+
+Outputs are **build artifacts** — gitignored, created on demand, never committed.
+The source zip skips `.terraform/`, `*.tfstate*`, `.DS_Store`, `.gitkeep`, and nested
+`*.zip`. If an owner has no `report.md`, the report PDF is skipped (zip still builds).
 After an exercise is finalized: `make record`, commit `SUBMISSIONS`, then `make submit`
-(or `make all`) and upload the zip to the course platform.
+(or `make all`) and upload both files from `dist/` to the course platform.
 
 ---
 
@@ -128,5 +173,6 @@ git checkout <name> && git merge main --no-edit && git push origin <name>
 
 ## Ignored files
 
-`.gitignore` already excludes Terraform state (`*.tfstate`, `.terraform/`),
-`*.zip`, and `.DS_Store`. Don't commit those.
+`.gitignore` excludes Terraform state (`*.tfstate`, `.terraform/`), `*.zip`,
+`.DS_Store`, your personal **`.env`**, the **`dist/`** build dir, and rendered
+report PDFs. Don't commit those. (The shared instruction PDFs stay tracked.)
