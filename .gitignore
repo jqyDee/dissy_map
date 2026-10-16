@@ -6,3 +6,9 @@
 **/.terraform.lock.hcl
 **/terraform.tfstate
 **/terraform.tfstate.backup
+
+# no zips distributed
+#
+# create script/Makefile to create the final submission
+**/*.zip
+
