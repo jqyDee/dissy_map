@@ -22,3 +22,6 @@
 **/exc*_report_*.pdf
 **/report.pdf
 
+# no ssh credential files
+**/*.pem
+

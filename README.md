@@ -15,8 +15,8 @@ exercise into `main`, so `main` is always the single, combined submission.
 ├── README.md                 # this file
 ├── Makefile                  # builds the gradeable deliverables (make submit ...)
 ├── SUBMISSIONS               # which attempt is the accepted pick per exercise
-├── .env.example              # template for your personal settings (student id)
-├── .env                      # YOUR student id — gitignored, copy from .env.example
+├── .env.example              # template for your personal settings (UIBK username)
+├── .env                      # YOUR UIBK username — gitignored, copy from .env.example
 ├── .gitignore                # ignores tfstate, .terraform, zips, .env, dist/, .DS_Store
 ├── dist/                     # build output (zip + report PDF) — gitignored
 │
@@ -120,14 +120,14 @@ Markdown → PDF step, via `npx md-to-pdf`).
 Node sanity check: `node -v && npx -v`. The first `md-to-pdf` run downloads a
 headless Chromium (one-time, a few hundred MB), then renders the PDF.
 
-Then set your student id once:
+Then set your UIBK username once:
 
 ```bash
-cp .env.example .env        # then edit .env: MATRIKEL=cs123456 (your real id)
+cp .env.example .env        # then edit .env: STUDENT_ID=csabc123 (your UIBK username, not Matrikelnummer)
 ```
 
 `.env` is **gitignored** — each teammate keeps their own. `SUBMISSIONS` (shared)
-decides *which* solution ships; `.env` decides *whose id* the files are named with.
+decides *which* solution ships; `.env` decides *whose username* the files are named with.
 
 ## Building the submission
 
@@ -143,11 +143,11 @@ make all                     # package every accepted pick in SUBMISSIONS
 make clean                   # remove dist/ (all built artifacts)
 ```
 
-`make submit EX=1` produces, in `dist/` and named with your `.env` id:
+`make submit EX=1` produces, in `dist/` and named with your `.env` username:
 
 ```
-dist/exc01_source_cs123456.zip   # contents of the owner's src/ (README.md + code), flat
-dist/exc01_report_cs123456.pdf   # the owner's report.md rendered to PDF
+dist/exc01_source_csabc123.zip   # contents of the owner's src/ (README.md + code), flat
+dist/exc01_report_csabc123.pdf   # the owner's report.md rendered to PDF
 ```
 
 Outputs are **build artifacts** — gitignored, created on demand, never committed.
