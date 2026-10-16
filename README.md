@@ -95,14 +95,21 @@ chore(paul): move Exercise 1 solution into paul/
 
 ## Building the submission
 
-Zips are **build artifacts** — gitignored, created on demand, never committed.
+The accepted pick per exercise is recorded in the tracked **`SUBMISSIONS`** file
+(`<exercise-number> <tab> <owner>`). That file is the record of what we uploaded for
+grading — commit it whenever a pick changes.
 
 ```bash
-make submit EX=1 WHO=matti      # -> Exercise_1/Exercise_1_submission.zip
-make clean                      # remove all built submission zips
+make record EX=1 WHO=matti   # mark matti as the accepted Exercise 1 solution (edits SUBMISSIONS)
+make all                     # build a zip for every accepted pick in SUBMISSIONS
+make submit EX=1 WHO=matti   # build just one zip -> Exercise_1/Exercise_1_submission.zip
+make clean                   # remove all built submission zips
 ```
 
-Build it after an exercise is finalized, then upload that zip to the course platform.
+Zips are **build artifacts** — gitignored, created on demand, never committed.
+Packaging skips `.terraform/`, `*.tfstate*`, `.DS_Store`, and nested `*.zip`.
+After an exercise is finalized: `make record`, commit `SUBMISSIONS`, then `make submit`
+(or `make all`) and upload the zip to the course platform.
 
 ---
 
