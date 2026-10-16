@@ -7,8 +7,18 @@
 **/terraform.tfstate
 **/terraform.tfstate.backup
 
+# personal settings (student id); use .env.example as the tracked template
+.env
+
+# build artifacts: Makefile writes the submission zip + report PDF here
+/dist/
+
 # no zips distributed
 #
 # create script/Makefile to create the final submission
 **/*.zip
+
+# rendered report PDFs are build artifacts (the instruction PDFs stay tracked)
+**/exc*_report_*.pdf
+**/report.pdf
 
