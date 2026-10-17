@@ -94,29 +94,29 @@ done
 ```
 size=300
 
-real	0m0.009s
-user	0m0.005s
+real	0m0.010s
+user	0m0.004s
 sys	0m0.000s
 size=600
 
-real	0m0.008s
+real	0m0.017s
 user	0m0.005s
 sys	0m0.000s
 size=1200
 
-real	0m0.013s
-user	0m0.006s
-sys	0m0.001s
+real	0m0.047s
+user	0m0.000s
+sys	0m0.005s
 size=2400
 
-real	0m0.034s
-user	0m0.011s
-sys	0m0.000s
+real	0m0.168s
+user	0m0.000s
+sys	0m0.004s
 size=4800
 
-real	0m0.275s
-user	0m0.011s
-sys	0m0.011s
+real	0m0.628s
+user	0m0.005s
+sys	0m0.000s
 ```
 
 ---
@@ -223,21 +223,44 @@ CONTAINER ID   IMAGE                 COMMAND                  CREATED         ST
   docker top tic-tac-toe-backend-1
   docker top tic-tac-toe-backend-2
   ```
-  TODO: paste output. Each container runs its own `uvicorn` process. On the
-  host it has a distinct PID, but inside its own PID namespace it is PID 1.
+
+  **Output:**
+  ```
+  UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
+  root                31146               31120               2                   14:30               ?                   00:00:00            /usr/local/bin/python3.11 /usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+  UID                 PID                 PPID                C                   STIME               TTY                 TIME                CMD
+  root                30939               30916               2                   14:30               ?                   00:00:00            /usr/local/bin/python3.11 /usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+  ```
 - Check hostname (UTS namespace):
   ```
   docker exec tic-tac-toe-backend-1 hostname
   docker exec tic-tac-toe-backend-2 hostname
   ```
-  TODO: paste output (two different container IDs).
+
+  **Output:**
+  ```
+  ab499ceb342f
+  424986c67312
+  ```
 - Check network namespace:
   ```
   docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' tic-tac-toe-backend-1 tic-tac-toe-backend-2
   ```
-  TODO: paste output (two different IPs in `tic-tac-toe_default`).
+
+  **Output:**
+  ```
+  172.19.0.3
+  172.19.0.2
+  ```
 - Check resource usage per container with `docker stats --no-stream`.
-  TODO: paste output.
+
+  **Output:**
+  ```
+  CONTAINER ID   NAME                     CPU %     MEM USAGE / LIMIT     MEM %     NET I/O       BLOCK I/O         PIDS
+  a3fd5ec49992   tic-tac-toe-frontend-1   0.00%     3.961MiB / 957.6MiB   0.41%     1.09kB / 0B   1.42MB / 12.3kB   2
+  424986c67312   tic-tac-toe-backend-2    0.11%     35.54MiB / 957.6MiB   3.71%     1.45kB / 0B   1.07MB / 168kB    1
+  ab499ceb342f   tic-tac-toe-backend-1    0.11%     34.73MiB / 957.6MiB   3.63%     1.25kB / 0B   209kB / 168kB     1
+  ```
 
 When all this is done, stop the containers with `docker compose down`. Check
 with `docker ps` that no containers are running anymore.
@@ -368,30 +391,33 @@ client and are therefore nearly constant in both runs.
 
 | size (px) | EC2 baseline (Task 1) | EC2 + Lambda (Task 3) | Lambda / EC2 |
 | ---: | ---: | ---: | ---: |
-| 300 | 0.009 s | 0.905 s (cold start) | ~100x |
-| 600 | 0.008 s | 0.101 s | ~13x |
-| 1200 | 0.013 s | 0.322 s | ~25x |
-| 2400 | 0.034 s | 1.021 s | ~30x |
-| 4800 | 0.275 s | 3.990 s | ~15x |
+| 300 | 0.010 s | 0.905 s (cold start) | ~90x |
+| 600 | 0.017 s | 0.101 s | ~6x |
+| 1200 | 0.047 s | 0.322 s | ~7x |
+| 2400 | 0.168 s | 1.021 s | ~6x |
+| 4800 | 0.628 s | 3.990 s | ~6x |
 
 Observations:
 
+- **Workload scaling:** doubling the edge length quadruples the number of
+  pixels Pillow has to draw and PNG-compress. Both setups grow by roughly 3–4x
+  per step, so the rendering time is dominated by the pixel count.
 - **Cold start:** the first request (size 300) took 0.9 s, although the
   following, larger request (600) only took 0.1 s. The first invocation has to
   start a new execution environment and load Python and Pillow. Later requests
   reuse the warm environment.
-- **Fixed overhead:** even warm, every offloaded request pays an extra HTTPS
-  round trip from the VM to the Lambda function URL. On top come JSON
-  serialization and base64 encoding/decoding of the image (+33 % payload size).
-  For small images this overhead is far larger than the actual rendering time.
-- **Growing gap for large images:** with 512 MB of memory, Lambda only gets a
-  fraction of a vCPU, so the rendering itself is slower than on the VM. In
-  addition, the response payload grows with the image size and has to cross the
-  network twice in encoded form.
-- For this workload, offloading does not pay off. The task is short and
-  CPU-light, so communication overhead dominates. Lambda would only be
-  beneficial for heavy or bursty workloads that would overload the single
-  `t2.micro`.
+- **Constant slowdown when warm:** for all warm requests Lambda is about 6x
+  slower than local rendering. With 512 MB of memory, Lambda only gets a
+  fraction of a vCPU (a full vCPU at ~1769 MB), so the PNG creation itself runs
+  slower than on the `t2.micro`. On top of that, every offloaded request pays an
+  HTTPS round trip from the VM to the function URL, JSON serialization, and
+  base64 encoding/decoding of the image (+33 % payload size). The returned PNG
+  grows with the image size, so this transfer overhead grows too.
+- For this workload, offloading does not pay off. A single PNG render is short
+  and fits easily on the VM, so the weaker CPU and the communication overhead
+  dominate. Lambda would only be beneficial for heavy or bursty workloads that
+  would overload the single `t2.micro`, or with a higher memory setting (more
+  CPU).
 - Each size was measured once. For more robust numbers, each request should be
   repeated several times and cold and warm runs reported separately.
 
@@ -408,15 +434,36 @@ terraform destroy -var enable_lambda=true
 >Question 1: What are the primary benefits of containerizing your application
  with Docker compared to deploying directly onto a raw EC2 virtual machine?
 
-TODO: your answer.
+The `Dockerfile` defines the whole environment (Python version and
+dependencies), so the app runs the same on every host and does not depend on
+the state of the VM. There is no manual venv setup or second ssh session:
+`docker compose up` builds and starts everything, and `docker compose down`
+cleans it up. Containers also add isolation, central logs and automatic
+restarts, with almost no runtime overhead because they share the host kernel.
 
 >Question 2: Why is running multiple containers in parallel on a single VM more
  efficient or manageable than running multiple raw Python processes manually?
 
-TODO: your answer.
+`docker compose up --scale backend=2` starts both replicas from the same image
+with one command. Each replica listens on port `8000` inside its own network
+namespace, and Docker maps them to free host ports, so there are no port
+conflicts. Each replica has its own PID, hostname, IP and filesystem, so one
+cannot affect the other, and all of them are started, stopped and monitored
+together. Raw processes would need separate sessions, manual ports and manual
+restarts. Since containers share the kernel and image layers, an extra replica
+costs about as much as an extra process, and far less than an extra VM.
 
 >Question 3: What are the operational trade-offs between managing code execution
  on an EC2 VM versus offloading it to a serverless function like AWS Lambda?
  What did you observe regarding startup times or execution overhead?
 
-TODO: your answer.
+On EC2 I manage the OS, packages, ports and scaling myself, and pay while the
+VM runs, but the process is always warm and has a full CPU. Lambda needs no
+server management, scales automatically and is billed per request. In return it
+has cold starts, network overhead per call, limits (runtime, payload, CPU tied
+to memory) and extra packaging work (bundling Pillow, JSON/base64 payloads).
+
+I observed a cold start of 0.9 s on the first request, compared to 0.1 s for
+the next (larger) one. Warm requests were still about 6x slower than local
+rendering, because of the HTTPS round trip, base64 encoding and the smaller CPU
+share at 512 MB. For this lightweight task, offloading does not pay off.
