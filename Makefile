@@ -3,6 +3,8 @@
 # Builds the two gradeable deliverables the course expects, per exercise:
 #   dist/exc0X_source_<STUDENT_ID>.zip   <- README.md + source (the chosen solution's src/)
 #   dist/exc0X_report_<STUDENT_ID>.pdf   <- that solution's report.md, rendered to PDF
+#                                           (**Student Name:**/**Student ID:** lines
+#                                           replaced by STUDENT_NAME/STUDENT_ID from .env)
 #
 # One submission per team: SUBMISSIONS records WHICH solution (owner) we picked.
 # But each member packages it under THEIR OWN id, read from .env (STUDENT_ID).
@@ -32,7 +34,7 @@ DIST ?= dist
 -include .env
 
 # Files inside src/ that must never end up in the submission zip.
-ZIP_EXCLUDES := '.terraform/*' '*/.terraform/*' '*.terraform.lock.hcl' '*.tfstate*' '.DS_Store' '*/.DS_Store' '.gitkeep' '*.zip'
+ZIP_EXCLUDES := '.terraform/*' '*/.terraform/*' '*.terraform.lock.hcl' '*.tfstate*' '.DS_Store' '*/.DS_Store' '.gitkeep' '*.zip' '*/PIL/*' '*/pillow*'
 
 .PHONY: submit all record clean check-student-id check-node
 
@@ -55,9 +57,15 @@ submit: check-student-id check-node
 	echo "built $(DIST)/$${tag}_source_$(STUDENT_ID).zip  (from $$dir/src, owner=$$who)"; \
 	if [ -f "$$dir/report.md" ]; then \
 		pdfout="$(DIST)/$${tag}_report_$(STUDENT_ID).pdf"; \
-		npx --yes md-to-pdf "$$dir/report.md" >/dev/null; \
-		mv "$$dir/report.md".pdf "$$pdfout" 2>/dev/null || mv "$${dir%/}/report.pdf" "$$pdfout"; \
-		echo "built $$pdfout  (from $$dir/report.md)"; \
+		tmpmd="$$dir/.report.build.md"; \
+		STUDENT_NAME="$(STUDENT_NAME)" STUDENT_ID="$(STUDENT_ID)" awk ' \
+			/^\*\*Student Name:\*\*/ { print "**Student Name:** " ENVIRON["STUDENT_NAME"] "  "; next } \
+			/^\*\*Student ID:\*\*/   { print "**Student ID:** `" ENVIRON["STUDENT_ID"] "`  "; next } \
+			{ print }' "$$dir/report.md" > "$$tmpmd"; \
+		npx --yes md-to-pdf "$$tmpmd" >/dev/null || { rm -f "$$tmpmd"; exit 1; }; \
+		rm -f "$$tmpmd"; \
+		mv "$$dir/.report.build.pdf" "$$pdfout"; \
+		echo "built $$pdfout  (from $$dir/report.md, as $(STUDENT_NAME) / $(STUDENT_ID))"; \
 	else \
 		echo "note: no $$dir/report.md -> skipped report PDF (zip only)"; \
 	fi
@@ -90,6 +98,7 @@ clean:
 check-student-id:
 	@test -n "$(STUDENT_ID)" || { echo "STUDENT_ID is empty. Copy .env.example to .env and set your UIBK username (csXXXXXX)."; exit 1; }
 	@test "$(STUDENT_ID)" != "csXXXXXX" || { echo "STUDENT_ID is still the placeholder (csXXXXXX). Edit .env with your real UIBK username."; exit 1; }
+	@test -n "$(STUDENT_NAME)" || { echo "STUDENT_NAME is empty. Set it in .env (used on the report PDF)."; exit 1; }
 
 check-node:
 	@command -v npx >/dev/null || { echo "npx not found. Install Node.js (needed for md-to-pdf). See README setup."; exit 1; }
