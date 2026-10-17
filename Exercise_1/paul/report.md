@@ -1,7 +1,7 @@
 # EX0X Report: [Exercise Title]
 
-**Student Name:** [Your Name]  
-**Student ID:** `csXXXXXX`  
+**Student Name:** [leave this exactly like this]  
+**Student ID:** `leave this exactly like this`  
 
 ---
 
