@@ -25,6 +25,19 @@ resource "aws_security_group" "ssh_access" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Security group to allow the access to the hosted applications ports
+resource "aws_security_group" "port_forward" {
+  name        = "baseline_application_access"
+  description = "Allow inbound application access"
+
   ingress {
     description = "Frontend"
     from_port   = 80
@@ -40,13 +53,6 @@ resource "aws_security_group" "ssh_access" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 }
 
 # EC2 Instance
@@ -54,7 +60,7 @@ resource "aws_instance" "baseline_vm" {
   ami                    = data.aws_ami.amazon_linux_2023.id
   instance_type          = "t2.micro"
   key_name               = "vockey" # Default key provided by AWS Learner Lab
-  vpc_security_group_ids = [aws_security_group.ssh_access.id]
+  vpc_security_group_ids = [aws_security_group.ssh_access.id, aws_security_group.port_forward.id]
 
   user_data = <<-EOF
               #!/bin/bash
@@ -62,7 +68,7 @@ resource "aws_instance" "baseline_vm" {
               dnf install -y docker python3 python3-pip
               systemctl enable --now docker
               usermod -aG docker ec2-user
-              
+
               # Automatically download and install Compose & Buildx plugins
               mkdir -p /usr/libexec/docker/cli-plugins
               curl -SL https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-x86_64 -o /usr/libexec/docker/cli-plugins/docker-compose
