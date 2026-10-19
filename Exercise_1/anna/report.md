@@ -199,7 +199,181 @@ After finishing, the infrastructure is removed with `terraform destroy`.
 
 ## Task 2 - Containerization with Docker
 
-TODO
+To run the app on the VM in Task 1, we had to install the requirements by hand. A container, however, packages the app together with everything it needs, and it runs the same everywhere Docker is installed.
+
+### 2.1 The Dockerfile
+
+We used the Dockerfile that comes with our team's tic-tac-toe app:
+
+```dockerfile
+FROM python:3.11-slim                                # start from an image that already has Python 3.11
+WORKDIR /app                                         # create the folder /app inside the image and work from there
+COPY requirements.txt .                              # copy the dependency list in
+RUN pip install --no-cache-dir -r requirements.txt   # install the dependencies at build time
+COPY main.py .                                       # copy the code
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]   # what runs when a container starts
+```
+
+`docker build` follows the recipe and produces an **image** (a snapshot of the app plus its environment). Each line of the Dockerfile becomes a layer, and unchanged layers are cached. That's why `requirements.txt` is copied before `main.py`: if you only change the code, the slow `pip install` layer gets reused. `RUN` happens at build time, `CMD` at run time.
+
+`docker run` starts a **container** from the image. One image can run as many containers at once, like one class and many objects.
+
+**VM vs. container:** a VM virtualises the hardware and runs its own full OS with its own kernel, which is heavy and takes some time to start. A container shares the host's kernel and is just an isolated process, which is light and starts in a second. Containers are isolated by two Linux features:
+
+- **namespaces**: each container gets its own view of processes, network and filesystem, so it can't see the others
+- **cgroups**: limits on how much CPU and memory each one may use
+
+### 2.2 Build and run on EC2
+
+**Security group.** Because the task asks for two containers in parallel, we need one port per container on the VM, so we widened the backend rule in `main.tf` and ran `terraform plan` and `terraform apply` (an in-place update of the security group; the VM itself is untouched):
+
+```hcl
+ingress {
+  from_port   = 8000
+  to_port     = 8001
+  protocol    = "tcp"
+  cidr_blocks = ["0.0.0.0/0"]
+}
+```
+
+(Our `docker-compose.yml` maps `"8000-8002:8000"`, so it could use up to three ports, but for two containers 8000–8001 is enough.)
+
+**Docker on the VM.** We installed Docker, started the Docker service (the daemon that actually builds images and runs containers) and added `ec2-user` to the `docker` group, so there's no need for `sudo` before every docker command:
+
+```bash
+sudo dnf install -y docker
+sudo systemctl start docker
+sudo usermod -aG docker ec2-user   # takes effect after logging out and in again
+```
+
+**Build.** `-t` gives our image a tag, so it is easy to refer to it by name; the dot at the end is the build context (the folder Docker copies files from).
+
+```bash
+docker build -t ticktactoe-backend .
+```
+
+```
+$ docker images
+REPOSITORY           TAG       IMAGE ID       CREATED          SIZE
+ticktactoe-backend   latest    66074178fe7f   33 seconds ago   174MB
+```
+
+Running the same build a second time finished almost instantly, because every step was `CACHED`.
+
+**Run the first container:**
+
+```bash
+docker run -d -p 8000:8000 --name ttt1 ticktactoe-backend
+```
+
+- `-d`: detached, so the terminal doesn't stay busy
+- `-p <VM port>:<container port>`: maps a port on the VM to a port inside the container
+- `--name`: gives it a readable name
+- `ticktactoe-backend`: which image to start from
+
+**Verify with the logs.** Right after starting, `docker logs ttt1` shows uvicorn starting up. After sending a request from my laptop with curl, the request appears in the log:
+
+```
+$ docker logs ttt1
+LAMBDA_URL=None
+INFO:     Started server process [1]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     <my-ip>:35388 - "POST /api/render-bitmap HTTP/1.1" 200 OK
+```
+
+### 2.3 Two containers in parallel
+
+```bash
+docker run -d -p 8001:8000 --name ttt2 ticktactoe-backend
+```
+
+Only the VM-side port changes. Inside, both containers listen on 8000 without any conflict, because each has its own network namespace. 
+
+**Both are running:**
+
+```
+$ docker ps
+CONTAINER ID   IMAGE                COMMAND                  STATUS          PORTS                    NAMES
+93cf5a33a148   ticktactoe-backend   "uvicorn main:app --…"   Up 18 seconds   0.0.0.0:8001->8000/tcp   ttt2
+ed65bd436a8a   ticktactoe-backend   "uvicorn main:app --…"   Up 8 minutes    0.0.0.0:8000->8000/tcp   ttt1
+```
+
+**Both serve requests.** Sending a request from my laptop to each port returned `200` for both:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -X POST "http://54.145.234.105:8000/api/render-bitmap" \
+  -H "Content-Type: application/json" -d '{"board":["X","O","X","O","X","O","O","X","X"],"winner":"X"}'
+curl -s -o /dev/null -w "%{http_code}\n" -X POST "http://54.145.234.105:8001/api/render-bitmap" \
+  -H "Content-Type: application/json" -d '{"board":["X","O","X","O","X","O","O","X","X"],"winner":"X"}'
+```
+
+and the request shows up in ttt2's log as well:
+
+```
+$ docker logs ttt2
+...
+INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+INFO:     <my-ip>:35318 - "POST /api/render-bitmap HTTP/1.1" 200 OK
+```
+
+### 2.4 Isolation and process management
+
+**Hostnames.** Each container has its own hostname (its container ID), so they're isolated from each other:
+
+```
+$ docker exec ttt1 hostname
+ed65bd436a8a
+$ docker exec ttt2 hostname
+93cf5a33a148
+```
+
+**Processes from the VM's view.** From the VM, both uvicorns are just ordinary processes running on the VM's kernel, right next to everything else:
+
+```
+$ ps aux | grep uvicorn
+root   35107  0.2  5.5 144868 54152 ?  Ssl  13:08  0:01 /usr/local/bin/python3.11 /usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+root   35967  0.5  5.2  67460 51692 ?  Ss   13:17  0:00 /usr/local/bin/python3.11 /usr/local/bin/uvicorn main:app --host 0.0.0.0 --port 8000
+```
+
+`docker top ttt1` shows the same process (PID 35107) from the VM's perspective.
+
+**Processes from inside the containers.** Inside each container, uvicorn is PID 1 (the arguments in `/proc/1/cmdline` are separated by invisible null characters, which is why they look glued together):
+
+```
+$ docker exec ttt1 cat /proc/1/cmdline; echo
+/usr/local/bin/python3.11/usr/local/bin/uvicornmain:app--host0.0.0.0--port8000
+$ docker exec ttt2 cat /proc/1/cmdline; echo
+/usr/local/bin/python3.11/usr/local/bin/uvicornmain:app--host0.0.0.0--port8000
+```
+
+The logs say the same: `Started server process [1]`.
+
+| | PID on the VM | PID inside the container |
+| :--- | ---: | ---: |
+| ttt1's uvicorn | 35107 | 1 |
+| ttt2's uvicorn | 35967 | 1 |
+
+So the same process has two different PIDs, depending on who's looking. From the VM's point of view, there are two uvicorn processes; inside each container, uvicorn is the only process it knows about. That's the PID namespace.
+
+**CPU and memory per container.** Before the requests, ttt2 hadn't sent anything yet (`796B / 0B`); after them, both show traffic:
+
+```
+# before the curl requests
+NAME   CPU %   MEM USAGE / LIMIT     MEM %   NET I/O          PIDS
+ttt2   0.13%   34.53MiB / 957.6MiB   3.61%   796B / 0B        1
+ttt1   0.14%   38.59MiB / 957.6MiB   4.03%   2.2kB / 4.74kB   2
+
+# after the curl requests
+NAME   CPU %   MEM USAGE / LIMIT     MEM %   NET I/O           PIDS
+ttt2   0.13%   36.91MiB / 957.6MiB   3.85%   1.78kB / 4.59kB   2
+ttt1   0.13%   38.71MiB / 957.6MiB   4.04%   3.04kB / 9.33kB   2
+```
+
+Each container uses only about 35–39 MiB, so two containers together take roughly 75 MiB of the VM's 957 MiB. The LIMIT column shows the whole VM's memory because we didn't set a limit; with `docker run --memory 200m`, cgroups would cap each container.
+
+After finishing, both containers are removed with `docker rm -f ttt1 ttt2`.
 
 ---
 
