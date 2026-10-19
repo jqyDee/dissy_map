@@ -1,9 +1,16 @@
-import io
 import base64
+import io
+import json
+import os
+from urllib.request import Request, urlopen
+
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from PIL import Image, ImageDraw
+from pydantic import BaseModel
+
+LAMBDA_URL = os.environ.get("LAMBDA_URL")
+print(f"LAMBDA_URL={LAMBDA_URL}", flush=True)
 
 app = FastAPI()
 
@@ -21,52 +28,61 @@ class GameResult(BaseModel):
     winner: str  # "X", "O", or "Draw"
 
 
-def render_board_bitmap(board: list[str], winner: str) -> bytes:
-    # 300x300 image
-    img = Image.new("RGB", (300, 300), color=(255, 255, 255))
+def render_board_bitmap(board: list[str], winner: str, size: int = 300) -> bytes:
+    img = Image.new("RGB", (size, size), color=(255, 255, 255))
     draw = ImageDraw.Draw(img)
 
+    cell = size / 3
+    grid_w = max(1, size // 75)
+    mark_w = max(1, size // 50)
+    r = cell * 0.3
+
     # Grid lines
-    draw.line([(100, 0), (100, 300)], fill=(0, 0, 0), width=4)
-    draw.line([(200, 0), (200, 300)], fill=(0, 0, 0), width=4)
-    draw.line([(0, 100), (300, 100)], fill=(0, 0, 0), width=4)
-    draw.line([(0, 200), (300, 200)], fill=(0, 0, 0), width=4)
+    draw.line([(cell, 0), (cell, size)], fill=(0, 0, 0), width=grid_w)
+    draw.line([(2 * cell, 0), (2 * cell, size)], fill=(0, 0, 0), width=grid_w)
+    draw.line([(0, cell), (size, cell)], fill=(0, 0, 0), width=grid_w)
+    draw.line([(0, 2 * cell), (size, 2 * cell)], fill=(0, 0, 0), width=grid_w)
 
     # Draw X and O marks
-    for idx, cell in enumerate(board):
+    for idx, c in enumerate(board):
         col = idx % 3
         row = idx // 3
-        cx = col * 100 + 50
-        cy = row * 100 + 50
+        cx = col * cell + cell / 2
+        cy = row * cell + cell / 2
 
-        if cell == "X":
+        if c == "X":
             draw.line(
-                [(cx - 30, cy - 30), (cx + 30, cy + 30)], fill=(200, 0, 0), width=6
+                [(cx - r, cy - r), (cx + r, cy + r)], fill=(200, 0, 0), width=mark_w
             )
             draw.line(
-                [(cx + 30, cy - 30), (cx - 30, cy + 30)], fill=(200, 0, 0), width=6
+                [(cx + r, cy - r), (cx - r, cy + r)], fill=(200, 0, 0), width=mark_w
             )
-        elif cell == "O":
+        elif c == "O":
             draw.ellipse(
-                [(cx - 30, cy - 30), (cx + 30, cy + 30)], outline=(0, 0, 200), width=6
+                [(cx - r, cy - r), (cx + r, cy + r)], outline=(0, 0, 200), width=mark_w
             )
 
     buf = io.BytesIO()
     # Save as standard BMP format
-    img.save(buf, format="BMP")
+    img.save(buf, format="PNG")
     return buf.getvalue()
 
 
 @app.post("/api/render-bitmap")
-def render_bitmap(result: GameResult):
-    # --- TASK 1 & 2 BASELINE: Render on the EC2 machine ---
-    bmp_bytes = render_board_bitmap(result.board, result.winner)
-    return Response(content=bmp_bytes, media_type="image/bmp")
-
-    # --- TASK 3 OFFLOAD: Switch to this to invoke Lambda ---
-    # payload = json.dumps(result.model_dump()).encode('utf-8')
-    # req = urllib.request.Request("<YOUR_LAMBDA_FUNCTION_URL>", data=payload, headers={'Content-Type': 'application/json'})
-    # res = urllib.request.urlopen(req)
-    # data = json.loads(res.read().decode('utf-8'))
-    # bmp_bytes = base64.b64decode(data['bmp_base64'])
-    # return Response(content=bmp_bytes, media_type="image/bmp")
+def render_bitmap(result: GameResult, size: int = 300):
+    if LAMBDA_URL:
+        # --- TASK 3 OFFLOAD: Switch to this to invoke Lambda ---
+        payload = json.dumps({**result.model_dump(), "size": size}).encode("utf-8")
+        req = Request(
+            LAMBDA_URL,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+        )
+        res = urlopen(req)
+        data = json.loads(res.read().decode("utf-8"))
+        bmp_bytes = base64.b64decode(data["bmp_base64"])
+        return Response(content=bmp_bytes, media_type="image/png")
+    else:
+        # --- TASK 1 & 2 BASELINE: Render on the EC2 machine ---
+        bmp_bytes = render_board_bitmap(result.board, result.winner, size)
+        return Response(content=bmp_bytes, media_type="image/png")
