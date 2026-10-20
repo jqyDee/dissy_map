@@ -6,7 +6,7 @@ data "aws_iam_role" "lab_role" {
 # 2. Automatically install Linux-compatible Pillow (PIL) into a build folder
 resource "null_resource" "install_dependencies" {
   triggers = {
-    code_hash = filemd5("${path.module}/lambda/lambda_function.py")
+    code_hash = filemd5("${path.module}/tic-tac-toe/tic-tac-toe/lambda/lambda_function.py")
   }
 
   provisioner "local-exec" {

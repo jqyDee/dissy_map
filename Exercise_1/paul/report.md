@@ -1,4 +1,4 @@
-# EX0X Report: [Exercise Title]
+# EX01 Report: [Cloud Infrastructure]
 
 **Student Name:** [leave this exactly like this]  
 **Student ID:** `leave this exactly like this`  
