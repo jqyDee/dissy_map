@@ -2,6 +2,7 @@
 
 **Student Name:** [leave this exactly like this]  
 **Student ID:** `leave this exactly like this`  
+**Group Name:** `MAP`
 
 ---
 
