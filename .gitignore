@@ -28,3 +28,6 @@
 # no pillow package
 PIL
 pillow*
+
+# Exercise 1 (lambda_build)
+lambda_build
