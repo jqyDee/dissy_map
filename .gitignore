@@ -29,5 +29,8 @@
 PIL
 pillow*
 
+# no pycache
+**/__pycache__/*
+
 # Exercise 1 (lambda_build)
 lambda_build
