@@ -25,6 +25,9 @@
 # no ssh credential files
 **/*.pem
 
+# no logs
+**/*.log
+
 # no pillow package
 PIL
 pillow*
