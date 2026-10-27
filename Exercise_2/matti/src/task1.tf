@@ -4,18 +4,13 @@ variable "task_1" {
   default     = false
 }
 
-variable "machine_counter" {
+variable "machine_counter_1" {
   description = "The count of machines provisioned."
   type        = number
   default     = 2
 }
 
-locals {
-  node_ids = ["A", "B"]
-  app_path = "app-task-1"
-}
-
-resource "aws_security_group" "node" {
+resource "aws_security_group" "sec_node_1" {
   count = var.task_1 ? 1 : 0
   name  = "task1-replicated-counter"
 
@@ -41,12 +36,13 @@ resource "aws_security_group" "node" {
   }
 }
 
-resource "aws_instance" "vm" {
-  count                  = var.task_1 ? var.machine_counter : 0
+resource "aws_instance" "nodes_1" {
+  count                  = var.task_1 ? local.node_count_1 : 0
   ami                    = data.aws_ami.al2023.id
   instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.node[0].id]
+  vpc_security_group_ids = [aws_security_group.sec_node_1[0].id]
   key_name               = "vockey"
+  availability_zone      = "us-east-1b"
 
   user_data_replace_on_change = true
   user_data                   = <<-EOF
@@ -60,34 +56,10 @@ resource "aws_instance" "vm" {
   }
 }
 
-resource "terraform_data" "deploy" {
-  count = length(aws_instance.vm)
 
-  triggers_replace = [
-    aws_instance.vm[count.index].id,
-    sha1(join("", [for f in fileset("${path.module}/${local.app_path}", "**") : filesha1("${path.module}/${local.app_path}/${f}")]))
-  ]
-
-  connection {
-    type        = "ssh"
-    host        = aws_instance.vm[count.index].public_ip
-    user        = "ec2-user"
-    private_key = file(pathexpand("~/.ssh/labsuser.pem"))
-  }
-
-  # Wait until user_data (dnf installs) is done
-  provisioner "remote-exec" {
-    inline = ["cloud-init status --wait > /dev/null"]
-  }
-
-  # Uploads local ./app to /home/ec2-user/app
-  provisioner "file" {
-    source      = "${path.module}/${local.app_path}"
-    destination = "/home/ec2-user"
-  }
-}
-
-output "public_ip" {
+output "task_1" {
   description = "Public IPs of the replicated counter nodes"
-  value       = { for i, vm in aws_instance.vm : "task-1-node${local.node_ids[i]}" => vm.public_ip }
+  value = var.task_1 ? {
+    for i, vm in aws_instance.nodes_1 : local.node_ids[i] => { public = vm.public_ip, private = vm.private_ip }
+  } : null
 }
