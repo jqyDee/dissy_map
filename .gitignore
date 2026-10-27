@@ -25,9 +25,15 @@
 # no ssh credential files
 **/*.pem
 
+# no logs
+**/*.log
+
 # no pillow package
 PIL
 pillow*
+
+# no pycache
+**/__pycache__/*
 
 # Exercise 1 (lambda_build)
 lambda_build
