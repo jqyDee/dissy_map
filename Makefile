@@ -62,7 +62,7 @@ submit: check-student-id check-node
 			/^\*\*Student Name:\*\*/ { print "**Student Name:** " ENVIRON["STUDENT_NAME"] "  "; next } \
 			/^\*\*Student ID:\*\*/   { print "**Student ID:** `" ENVIRON["STUDENT_ID"] "`  "; next } \
 			{ print }' "$$dir/report.md" > "$$tmpmd"; \
-		npx --yes md-to-pdf "$$tmpmd" >/dev/null || { rm -f "$$tmpmd"; exit 1; }; \
+		npx --yes md-to-pdf "$$tmpmd" </dev/null >/dev/null ||{ rm -f "$$tmpmd"; exit 1; }; \
 		rm -f "$$tmpmd"; \
 		mv "$$dir/.report.build.pdf" "$$pdfout"; \
 		echo "built $$pdfout  (from $$dir/report.md, as $(STUDENT_NAME) / $(STUDENT_ID))"; \
