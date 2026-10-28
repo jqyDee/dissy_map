@@ -1,0 +1,19 @@
+services:
+    backend:
+        build:
+            context: ./backend
+        ports:
+            - "8000-8002:8000"
+        environment:
+            - LAMBDA_URL
+        restart: unless-stopped
+
+    frontend:
+        image: nginx:alpine
+        volumes:
+            - ./frontend:/usr/share/nginx/html:ro
+        ports:
+            - "80:80"
+        depends_on:
+            - backend
+        restart: unless-stopped

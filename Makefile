@@ -34,7 +34,7 @@ DIST ?= dist
 -include .env
 
 # Files inside src/ that must never end up in the submission zip.
-ZIP_EXCLUDES := '.terraform/*' '*/.terraform/*' '*.terraform.lock.hcl' '*.tfstate*' '.DS_Store' '*/.DS_Store' '.gitkeep' '*.zip' '*/PIL/*' '*/pillow*'
+ZIP_EXCLUDES := '.terraform/*' '*/.terraform/*' '*.terraform.lock.hcl' '*.tfstate*' '.DS_Store' '*/.DS_Store' '.gitkeep' '*.zip' '*/PIL/*' '*/pillow*' '*/lambda_build/*' '*/__pycache__/*'
 
 .PHONY: submit all record clean check-student-id check-node
 
