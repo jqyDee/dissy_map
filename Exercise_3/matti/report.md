@@ -6,6 +6,41 @@
 
 ---
 
+# Images
+
+![Task 1](./images/task-1.png)
+**Task 1**
+
+![Task 1 - Rejoin Before Disconnect (Same as Crash)](./images/task-1-rejoin-start.png)
+**Task 1 - Rejoin Before Disconnect (Same as Crash)**
+
+![Task 1 - Rejoin Before Startup (Same as Crash)](./images/task-1-rejoin-middle.png)
+**Task 1 - Rejoin Before Startup (Same as Crash)**
+
+![Task 1 - Rejoin After Reconnect (Same as Crash)](./images/task-1-rejoin-end.png)
+**Task 1 - Rejoin After Reconnect (Same as Crash)**
+
+![Task 2](./images/task-1.png)
+**Task 2**
+
+![Task 3 - Loyal](./images/task-3-loyal.png)
+**Task 3 - Loyal**
+
+![Task 3 - Commander Traitor](./images/task-3-traitor-cmd.png)
+**Task 3 - Commander Traitor**
+
+![Task 3 - Lieutenant Traitor](./images/task-3-traitor-lieut.png)
+**Task 3 - Lieutenant Traitor**
+
+![Task 4 - Loyal](./images/task-4-loyal.png)
+**Task 4 - Loyal**
+
+![Task 4 - Commander Traitor](./images/task-4-traitor-cmd.png)
+**Task 4 - Commander Traitor**
+
+![Task 4 - Lieutenant Traitor](./images/task-4-traitor-lieut.png)
+**Task 4 - Lieutenant Traitor**
+
 ## Task 1 - [Title]
 
 ### Text & Sections
