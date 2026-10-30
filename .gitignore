@@ -37,3 +37,6 @@ pillow*
 
 # Exercise 1 (lambda_build)
 lambda_build
+
+# no target (cargo)
+**/target/*
