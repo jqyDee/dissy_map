@@ -14,9 +14,9 @@ use serde::{Deserialize, Serialize};
 use crate::byzantine::Role;
 
 /// protocol version
-const VERSION: &str = "1.0.0";
+pub(crate) const VERSION: &str = "1.0.0";
 /// the protocol name
-const PROTOCOL: &str = concatcp!("/dissy/", VERSION);
+pub(crate) const PROTOCOL: &str = concatcp!("/dissy/", VERSION);
 /// the name protocol name
 const NAME_PROTOCOL: StreamProtocol = StreamProtocol::new(concatcp!("/dissy/name/", VERSION));
 
@@ -34,6 +34,9 @@ pub struct NameRespone {
 }
 
 /// Behaviour of the peer network, specifying builtin and custom protocols
+///
+/// The derive, derives the `Events` and further for each of the specified
+/// protocols
 #[derive(NetworkBehaviour)]
 pub struct NetwBehaviour {
     /// mdns discovery protocol
@@ -112,7 +115,7 @@ pub fn build_swarm_default()
         yamux::Config::default, // default libp2p yamux config
     )?;
 
-    // configure the peer network behaviour.
+    // configure the peer network behaviour, with our custom behaviour.
     let swarm_build_pipe = swarm_build_pipe.with_behaviour(NetwBehaviour::new)?;
 
     // keep connections open even when no protocol stream is active; otherwise

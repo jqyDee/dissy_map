@@ -12,7 +12,10 @@ use libp2p::{
 };
 use serde::{Deserialize, Serialize};
 
-use crate::node::{App, Node};
+use crate::{
+    behaviours::VERSION,
+    node::{App, Node},
+};
 
 const DECIDE_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -126,7 +129,7 @@ impl Node {
         }
     }
 
-    ///
+    /// run the tick for `App::Byzantine`.
     pub(crate) fn byz_tick(&mut self) {
         self.byz_retry_pending();
         match self.byz().role {
@@ -181,7 +184,7 @@ impl Node {
             return;
         }
 
-        // only send command from out from the commander when all needed
+        // only send command out from the commander when all needed
         // lieutenants are connected
         let (n, order, traitor) = (b.lieutenants, b.order, b.traitor);
         let targets = self.ready_lieutenants();
@@ -189,9 +192,8 @@ impl Node {
             return;
         }
 
-        // send to the lieutenants
+        // send to the lieutenants while flipping every second order when a traitor
         for (i, name) in targets.iter().enumerate() {
-            // flip every second one
             let value = if traitor && i % 2 == 1 {
                 order.flip()
             } else {
@@ -362,5 +364,5 @@ pub fn decide(from_commander: Option<Order>, relays: &[Order]) -> Order {
 }
 
 fn inbox(name: &str) -> IdentTopic {
-    IdentTopic::new(format!("/dissy/byz/1.0.0/{name}"))
+    IdentTopic::new(format!("/dissy/byz/{}/{name}", VERSION))
 }

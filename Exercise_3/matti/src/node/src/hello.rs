@@ -1,9 +1,9 @@
 use libp2p::gossipsub::{self, IdentTopic};
 
-use crate::node::Node;
+use crate::{behaviours::VERSION, node::Node};
 
 impl Node {
-    /// subscripe to the topic in gossipsip
+    /// subscribe to the topic in gossipsip
     pub(crate) fn hello_init(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         self.swarm.behaviour_mut().gossipsub.subscribe(&topic())?;
         Ok(())
@@ -33,5 +33,5 @@ impl Node {
 
 /// topic/protocol name
 fn topic() -> IdentTopic {
-    IdentTopic::new("/dissy/hello/1.0.0")
+    IdentTopic::new(format!("/dissy/hello/{}", VERSION))
 }

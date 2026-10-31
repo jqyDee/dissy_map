@@ -28,7 +28,7 @@ pub fn draw(frame: &mut Frame, node: &Node) {
     let visible = log_area.height.saturating_sub(2) as usize;
     let skip = node.log.len().saturating_sub(visible);
     let items = node.log.iter().skip(skip).map(String::as_str);
-    
+
     // render the log pane
     frame.render_widget(
         List::new(items).block(Block::bordered().title(" Messages (q to quit) ")),

@@ -2,12 +2,12 @@ use std::{collections::HashMap, time::Duration};
 
 use crossterm::event::{Event, EventStream, KeyCode, KeyEventKind, KeyModifiers};
 use futures::StreamExt;
-use libp2p::{PeerId, Swarm, gossipsub, mdns, ping, request_response, swarm::SwarmEvent};
+use libp2p::{PeerId, Swarm, gossipsub, identify, mdns, ping, request_response, swarm::SwarmEvent};
 use tokio::time::Instant;
 
 use crate::{
     behaviours::{
-        NameRequest, NameRespone, NetwBehaviour, NetwBehaviourEvent, build_swarm_default,
+        NameRequest, NameRespone, NetwBehaviour, NetwBehaviourEvent, PROTOCOL, build_swarm_default,
     },
     byzantine::{Byzantine, Role},
 };
@@ -25,7 +25,7 @@ pub struct Node {
     pub(crate) app: App,
     /// event log shown in the messages pane (or printed in plain mode)
     pub(crate) log: Vec<String>,
-    /// print to stdout instead of draeing the tui (e.g. scripts)
+    /// print to stdout instead of drawing the tui (e.g. scripts)
     pub(crate) plain: bool,
     /// our own name, given on the command line
     pub(crate) name: String,
@@ -33,10 +33,10 @@ pub struct Node {
     pub(crate) swarm: Swarm<NetwBehaviour>,
     /// names of connected peers, learned through the name exchange protocol
     pub(crate) names: HashMap<PeerId, String>,
-    /// roles of connected peers, learned through the name exchange protocol
-    pub(crate) roles: HashMap<PeerId, Role>,
     /// start time, log lines are stamped relative to it
     start: Instant,
+    /// roles of connected peers, learned through the name exchange protocol
+    pub(crate) roles: HashMap<PeerId, Role>,
 }
 
 impl Node {
@@ -121,6 +121,23 @@ impl Node {
 
     /// what to do on tick (always print the status, and then do ...)
     fn on_tick(&mut self) {
+        // reconnect: mdns only emits `Discovered` for new (peer, addr) pairs, so a
+        // dropped connection to a peer whose record is still valid would never be
+        // redialed. dial every discovered but unconnected peer; addresses come from
+        // mdns. a failed dial is silent, the peer is retried each tick until its mdns
+        // record expires (ttl, 10s without a reply).
+        let lost: Vec<PeerId> = self
+            .swarm
+            .behaviour()
+            .mdns
+            .discovered_nodes()
+            .filter(|p| !self.swarm.is_connected(p))
+            .copied()
+            .collect();
+        for p in lost {
+            let _ = self.swarm.dial(p);
+        }
+
         match self.app {
             App::Discover => {}
             App::Hello => self.hello_tick(),
@@ -147,10 +164,7 @@ impl Node {
             }
             SwarmEvent::Behaviour(NetwBehaviourEvent::Ping(ev)) => self.on_ping(ev),
             SwarmEvent::Behaviour(NetwBehaviourEvent::Gossipsub(ev)) => self.on_gossipsub(ev),
-            SwarmEvent::Behaviour(NetwBehaviourEvent::Identify(_)) => {}
-            SwarmEvent::NewListenAddr { address, .. } => {
-                self.log(format!("listening on {address}"));
-            }
+            SwarmEvent::Behaviour(NetwBehaviourEvent::Identify(ev)) => self.on_identify(ev),
             SwarmEvent::ConnectionEstablished {
                 peer_id,
                 num_established,
@@ -176,6 +190,28 @@ impl Node {
                 let who = self.names.remove(&peer_id).unwrap_or_else(|| "?".into());
                 self.roles.remove(&peer_id);
                 self.log(format!("- LEAVE {who} ({peer_id}), cause: {cause:?}"));
+            }
+            SwarmEvent::OutgoingConnectionError { peer_id, error, .. } => {
+                let who = peer_id.map_or("?".into(), |p| p.to_string());
+                self.log(format!("dial {who} failed: {error}"));
+            }
+            SwarmEvent::IncomingConnectionError {
+                send_back_addr,
+                error,
+                ..
+            } => {
+                self.log(format!(
+                    "incoming connection from {send_back_addr} failed: {error}"
+                ));
+            }
+            SwarmEvent::NewListenAddr { address, .. } => {
+                self.log(format!("listening on {address}"));
+            }
+            SwarmEvent::ExpiredListenAddr { address, .. } => {
+                self.log(format!("no longer listening on {address}"));
+            }
+            SwarmEvent::ListenerError { error, .. } => {
+                self.log(format!("listener error: {error}"));
             }
             _ => {}
         }
@@ -289,6 +325,29 @@ impl Node {
             },
             gossipsub::Event::Subscribed { peer_id, topic } => {
                 self.log(format!("{peer_id} subscribed to {topic}"));
+            }
+            _ => {}
+        }
+    }
+
+    /// what to do on the identify protocol. currently just checks if the peers
+    /// protocol version is the one the node is using.
+    fn on_identify(&mut self, ev: identify::Event) {
+        #[allow(clippy::single_match)]
+        match ev {
+            identify::Event::Received { peer_id, info, .. }
+                if info.protocol_version != PROTOCOL =>
+            {
+                // for the future: it makes sense here to add some kind of field
+                // like `ignored_peers` to the node, so it does not try to
+                // reconnect to nodes on different protocols constantly. this
+                // would intern than need some kind of ignoring for the
+                // discovery as well
+                self.log(format!(
+                    "foreign peer {peer_id} ({}), disconnecting",
+                    info.protocol_version
+                ));
+                let _ = self.swarm.disconnect_peer_id(peer_id);
             }
             _ => {}
         }
