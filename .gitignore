@@ -25,6 +25,9 @@
 # no ssh credential files
 **/*.pem
 
+# no logs
+**/*.log
+
 # no pillow package
 PIL
 pillow*
@@ -34,3 +37,6 @@ pillow*
 
 # Exercise 1 (lambda_build)
 lambda_build
+
+# no target (cargo)
+**/target/*

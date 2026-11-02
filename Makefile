@@ -34,7 +34,7 @@ DIST ?= dist
 -include .env
 
 # Files inside src/ that must never end up in the submission zip.
-ZIP_EXCLUDES := '.terraform/*' '*/.terraform/*' '*.terraform.lock.hcl' '*.tfstate*' '.DS_Store' '*/.DS_Store' '.gitkeep' '*.zip' '*/PIL/*' '*/pillow*' '*/lambda_build/*' '*/__pycache__/*'
+ZIP_EXCLUDES := '.terraform/*' '*/.terraform/*' '*.terraform.lock.hcl' '*.tfstate*' '.DS_Store' '*/.DS_Store' '.gitkeep' '*.zip' '*/PIL/*' '*/pillow*' '*/lambda_build/*' '*/__pycache__/*' '*.log' '*/target/*'
 
 .PHONY: submit all record clean check-student-id check-node
 
@@ -62,7 +62,7 @@ submit: check-student-id check-node
 			/^\*\*Student Name:\*\*/ { print "**Student Name:** " ENVIRON["STUDENT_NAME"] "  "; next } \
 			/^\*\*Student ID:\*\*/   { print "**Student ID:** `" ENVIRON["STUDENT_ID"] "`  "; next } \
 			{ print }' "$$dir/report.md" > "$$tmpmd"; \
-		npx --yes md-to-pdf "$$tmpmd" >/dev/null || { rm -f "$$tmpmd"; exit 1; }; \
+		npx --yes md-to-pdf "$$tmpmd" </dev/null >/dev/null ||{ rm -f "$$tmpmd"; exit 1; }; \
 		rm -f "$$tmpmd"; \
 		mv "$$dir/.report.build.pdf" "$$pdfout"; \
 		echo "built $$pdfout  (from $$dir/report.md, as $(STUDENT_NAME) / $(STUDENT_ID))"; \
