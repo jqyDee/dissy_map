@@ -31,5 +31,5 @@ try :
         print("peers: ", peers)
         time.sleep(2)
 except KeyboardInterrupt:
-    print("\n bye bye")
+    print("\nbye bye")
     session.close()
