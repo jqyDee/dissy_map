@@ -1,19 +1,24 @@
 import argparse, zenoh, time
 
+# read the node's name from the command line
 parser = argparse.ArgumentParser(description="choose a name for a node")
 parser.add_argument("--name", required=True, help="name of a node")
 args = parser.parse_args()
 
 
+# open a Zenoh session in peer mode -> starts scounting and connects to other peers 
 session = zenoh.open(zenoh.Config());
 name = args.name
 
-# here we declare a liveliness token with a name passed as command args
+# here we declare a liveliness token with a name passed as command args for as long as the program runs
 token = session.liveliness().declare_token("node/" + name)
+#publisher on our own key. sends nothing until put is called
 publisher = session.declare_publisher("hello/" + name)
 
+# set of names of the nodes we see incl. ourselves
 peers = set()
-def on_change(sample):
+# callback for liveliness changes, called by Zenoh in a background thread
+def on_liveliness(sample):
     peer_name = str(sample.key_expr).split("/")[-1]
     if sample.kind == zenoh.SampleKind.PUT:
         peers.add(peer_name)
@@ -22,24 +27,28 @@ def on_change(sample):
         peers.discard(peer_name)
         print(f"Dropped token ('{sample.key_expr}')")
 
+# listen to everyone's liveliness tokens; history=True gives us nodes that were running before we started
+liveliness_subscriber = session.liveliness().declare_subscriber("node/*", on_liveliness, history=True)
 
-def on_callback(sample):
-    my_name = str(sample.key_expr).split("/")[-1]
+# callback for hello messages: sender = last part of the key, text = payload
+def on_hello(sample):
+    sender = str(sample.key_expr).split("/")[-1]
     message = sample.payload.to_string()
-    print("received " + message + " from node " + my_name)
+    print("received " + message + " from node " + sender)
 
 
-#then we check if a liveliness token is present and subscribe to changes
-subscriber = session.liveliness().declare_subscriber("node/*", on_change, history=True)
-another_subscriber = session.declare_subscriber("hello/*", on_callback)
+# listen to everyone's hello messages via the shared key hello/* (also matches own)
+hello_subscriber = session.declare_subscriber("hello/*", on_hello)
 
 
+# main loop sends a hello every 2s, prints who we see. callbacks run in the background
 try :
     while(True):
         publisher.put("hello from node " + name)
         print("your name is:", name)
         print("peers: ", peers)
         time.sleep(2)
+# to close the session cleanely, token disappears and the others know we left
 except KeyboardInterrupt:
     print("\nbye bye")
     session.close()
