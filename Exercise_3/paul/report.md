@@ -1,4 +1,4 @@
-# EX0X Report: [Exercise Title]
+# EX03 Report: [Network Topologies, Peer Discovery & Byzantine Agreement]
 
 **Student Name:** [leave this exactly like this]  
 **Student ID:** `leave this exactly like this`  
@@ -635,20 +635,3 @@ Zenoh offers static endpoints. That means I can configure a node with an address
 Let's say a node has a static endpoint configured using the address of a node that is already part of a wider peer to peer network, then through gossiping this initial node will learn of the entire network automatically as well.
 
 There are Zenoh routers (zenohd), which can act as a single known entry point, over which peers can discover each other. After initial discovery this router can be bypassed again and traffic flows directly peer to peer.
-
-
-<!--
-Delete this guide section before submitting — it must not appear in the report PDF.
-
-How to generate the PDF (this repo):
-- This is the template. Copy it to your folder as the report source:
-    cp report.template.md Exercise_<N>/<you>/report.md
-  then fill in the sections above.
-- Build it with the Makefile (renders report.md -> dist/exc0N_report_<STUDENT_ID>.pdf):
-    make submit EX=<N>
-  (set your UIBK username once in .env; see the repo README "Setup"). Uses `npx md-to-pdf`.
-
-Alternatives if you prefer:
-- VS Code: install the "Markdown PDF" extension, right-click -> Markdown PDF: Export (pdf).
-- Browser: open the Markdown preview, Cmd/Ctrl+P -> Save as PDF.
--->
