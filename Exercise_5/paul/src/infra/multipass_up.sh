@@ -14,7 +14,7 @@ launch zk 1G &
 for i in 1 2 3 4 5; do
   launch node$i 512M &
 done
-for job in $(jobs -p); do wait "$job"; done   # propagates failures to set -e
+for job in $(jobs -p); do wait "$job"; done
 
 # Restart stopped VMs (no-op for running ones)
 multipass start $VMS
