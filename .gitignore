@@ -5,6 +5,7 @@
 **/.terraform
 **/.terraform.lock.hcl
 **/terraform.tfstate
+**/terraform.tfstate.lock.info
 **/terraform.tfstate.backup
 
 # personal settings (student id); use .env.example as the tracked template
