@@ -84,20 +84,33 @@ As stated in the task description we will implement it as follows:
 
 We have a short bash script that compiles our Rust code for linux and uses
 multipass transfer to put the binary into each nodes home directory, and then
-make it executable:
+make it executable, also it checks the host machines architecture using uname to compile correctly:
 
 ```bash
 #!/usr/bin/env bash
 set -e
 cd "$(dirname "$0")/../auction"
 
-cargo zigbuild --release --target aarch64-unknown-linux-musl
-BIN=target/aarch64-unknown-linux-musl/release/auction
+# Build for the VMs' architecture (multipass VMs match the host CPU:
+# aarch64 on Apple Silicon, x86_64 on Intel/AMD). Ask a VM directly.
+arch=$(multipass exec node1 -- uname -m </dev/null)
+
+case "$arch" in
+  aarch64|arm64) TARGET=aarch64-unknown-linux-musl ;;
+  x86_64|amd64)  TARGET=x86_64-unknown-linux-musl ;;
+  *) echo "unsupported VM architecture: $arch" >&2; exit 1 ;;
+esac
+
+echo "building for $TARGET"
+rustup target add "$TARGET" >/dev/null 2>&1 || true
+cargo zigbuild --release --target "$TARGET"
+BIN=target/$TARGET/release/auction
 
 for i in 1 2 3 4 5; do
   multipass transfer "$BIN" node$i:/home/ubuntu/auction
   multipass exec node$i -- chmod +x /home/ubuntu/auction
 done
+
 
 ```
 
