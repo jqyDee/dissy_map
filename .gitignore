@@ -1,6 +1,9 @@
 **/.DS_Store
 **/.udo.toml
 
+**/.idea
+**/.vscode
+
 # terraform
 **/.terraform
 **/.terraform.lock.hcl
